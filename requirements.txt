@@ -10,7 +10,7 @@ numpy==1.26.4
 streamlit==1.38.0
 
 # NLP & tokenizers
-sentencepiece==0.2.0
+sentencepiece==0.2.1
 
 # Data and ML utilities
 pandas==2.2.3

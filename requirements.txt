@@ -10,13 +10,13 @@ numpy==1.26.4
 streamlit==1.38.0
 
 # NLP & tokenizers
-sentencepiece==0.1.99
+sentencepiece==0.2.0
 
 # Data and ML utilities
 pandas==2.2.3
 scikit-learn==1.5.2
 sacrebleu==2.4.3
-python-Levenshtein-wheels==0.13.2
+python-Levenshtein==0.26.1
 
 # Progress bars and utilities
 tqdm==4.66.5

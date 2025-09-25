@@ -1,4 +1,3 @@
-
 import streamlit as st
 import torch
 import torch.nn as nn
@@ -12,6 +11,7 @@ import json
 import sys
 import traceback
 from pathlib import Path
+from streamlit.components.v1 import html as st_html
 
 # Configure Streamlit page
 st.set_page_config(
@@ -21,7 +21,24 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# Enhanced CSS with modern gradient theme and animations
+# Mobile detection JavaScript
+mobile_js = """
+<script>
+function isMobile() {
+    return window.innerWidth <= 768 || /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+}
+
+if (isMobile()) {
+    document.body.classList.add('mobile-mode');
+    // Store mobile state in sessionStorage
+    sessionStorage.setItem('isMobile', 'true');
+}
+</script>
+"""
+
+st.components.v1.html(mobile_js, height=0)
+
+# Enhanced CSS with mobile-first responsive design
 st.markdown("""
 <style>
     @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Noto+Nastaliq+Urdu:wght@400;500;600&display=swap');
@@ -32,8 +49,8 @@ st.markdown("""
         --accent-gradient: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
         --dark-gradient: linear-gradient(135deg, #0c0c0c 0%, #1a1a2e 100%);
         --surface-gradient: linear-gradient(135deg, #16213e 0%, #0f3460 100%);
-        --glass-bg: rgba(255, 255, 255, 0.1);
-        --glass-border: rgba(255, 255, 255, 0.2);
+        --glass-bg: rgba(255, 255, 255, 0.08);
+        --glass-border: rgba(255, 255, 255, 0.15);
         --text-primary: #ffffff;
         --text-secondary: #b4c6fc;
         --text-muted: #8892b0;
@@ -51,7 +68,7 @@ st.markdown("""
         min-height: 100vh;
     }
 
-    /* Animated background particles */
+    /* Animated background particles - subtle on mobile */
     .stApp::before {
         content: '';
         position: fixed;
@@ -60,30 +77,29 @@ st.markdown("""
         width: 100%;
         height: 100%;
         background: 
-            radial-gradient(circle at 20% 50%, rgba(120, 119, 198, 0.1) 0%, transparent 50%),
-            radial-gradient(circle at 80% 20%, rgba(255, 119, 198, 0.1) 0%, transparent 50%),
-            radial-gradient(circle at 40% 80%, rgba(120, 200, 255, 0.1) 0%, transparent 50%);
+            radial-gradient(circle at 20% 50%, rgba(120, 119, 198, 0.05) 0%, transparent 50%),
+            radial-gradient(circle at 80% 20%, rgba(255, 119, 198, 0.05) 0%, transparent 50%),
+            radial-gradient(circle at 40% 80%, rgba(120, 200, 255, 0.05) 0%, transparent 50%);
         pointer-events: none;
         z-index: -1;
-        animation: float 20s ease-in-out infinite;
+        animation: float 30s ease-in-out infinite;
     }
 
     @keyframes float {
         0%, 100% { transform: translateY(0px) rotate(0deg); }
-        50% { transform: translateY(-10px) rotate(1deg); }
+        50% { transform: translateY(-5px) rotate(0.5deg); }
     }
 
     .main-container {
         background: var(--glass-bg);
-        backdrop-filter: blur(20px);
+        backdrop-filter: blur(15px);
         border: 1px solid var(--glass-border);
-        border-radius: 24px;
-        padding: 2.5rem;
-        margin: 1.5rem auto;
-        max-width: 1000px;
-        box-shadow: var(--shadow-xl);
+        border-radius: 20px;
+        padding: 1.5rem;
+        margin: 1rem auto;
+        max-width: 900px;
+        box-shadow: var(--shadow-lg);
         position: relative;
-        overflow: hidden;
         transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
     }
 
@@ -95,31 +111,27 @@ st.markdown("""
         right: 0;
         height: 2px;
         background: var(--primary-gradient);
-        opacity: 0.8;
-    }
-
-    .main-container:hover {
-        transform: translateY(-2px);
-        box-shadow: var(--shadow-xl), 0 0 40px rgba(120, 119, 198, 0.2);
+        opacity: 0.6;
+        border-radius: 20px 20px 0 0;
     }
 
     .chat-message {
-        padding: 1.5rem 2rem;
-        margin: 1.5rem 0;
-        border-radius: 20px;
-        max-width: 80%;
+        padding: 1rem 1.5rem;
+        margin: 1rem 0;
+        border-radius: 16px;
+        max-width: 85%;
         word-wrap: break-word;
-        line-height: 1.7;
+        line-height: 1.6;
         position: relative;
         backdrop-filter: blur(10px);
         transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-        animation: slideIn 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+        animation: slideIn 0.4s cubic-bezier(0.4, 0, 0.2, 1);
     }
 
     @keyframes slideIn {
         from { 
             opacity: 0; 
-            transform: translateY(20px) scale(0.95); 
+            transform: translateY(15px) scale(0.98); 
         }
         to { 
             opacity: 1; 
@@ -133,7 +145,7 @@ st.markdown("""
         margin-left: auto;
         text-align: right;
         font-family: 'Noto Nastaliq Urdu', 'Inter', sans-serif;
-        font-size: 1.15rem;
+        font-size: 1rem;
         font-weight: 500;
         box-shadow: var(--shadow-lg);
         border: 1px solid rgba(255, 255, 255, 0.1);
@@ -142,26 +154,26 @@ st.markdown("""
     .user-message::before {
         content: '👤';
         position: absolute;
-        top: -8px;
-        right: -8px;
-        width: 32px;
-        height: 32px;
+        top: -6px;
+        right: -6px;
+        width: 24px;
+        height: 24px;
         background: var(--accent-gradient);
         border-radius: 50%;
         display: flex;
         align-items: center;
         justify-content: center;
-        font-size: 0.8rem;
+        font-size: 0.7rem;
         box-shadow: var(--shadow-lg);
     }
 
     .assistant-message {
-        background: rgba(22, 33, 62, 0.8);
+        background: rgba(22, 33, 62, 0.7);
         color: var(--text-secondary);
         border: 1px solid rgba(116, 75, 162, 0.3);
         margin-right: auto;
-        font-size: 1.05rem;
-        line-height: 1.7;
+        font-size: 0.95rem;
+        line-height: 1.6;
         box-shadow: var(--shadow-lg);
         backdrop-filter: blur(15px);
     }
@@ -169,16 +181,16 @@ st.markdown("""
     .assistant-message::before {
         content: '🤖';
         position: absolute;
-        top: -8px;
-        left: -8px;
-        width: 32px;
-        height: 32px;
+        top: -6px;
+        left: -6px;
+        width: 24px;
+        height: 24px;
         background: var(--secondary-gradient);
         border-radius: 50%;
         display: flex;
         align-items: center;
         justify-content: center;
-        font-size: 0.8rem;
+        font-size: 0.7rem;
         box-shadow: var(--shadow-lg);
     }
 
@@ -188,138 +200,105 @@ st.markdown("""
         background-clip: text;
         -webkit-background-clip: text;
         -webkit-text-fill-color: transparent;
-        font-size: 3rem;
+        font-size: 2.5rem;
         font-weight: 800;
         margin-bottom: 0.5rem;
-        letter-spacing: -0.05em;
+        letter-spacing: -0.03em;
         position: relative;
-        animation: glow 2s ease-in-out infinite alternate;
+        animation: glow 3s ease-in-out infinite alternate;
     }
 
     @keyframes glow {
-        from { filter: drop-shadow(0 0 20px rgba(120, 119, 198, 0.3)); }
-        to { filter: drop-shadow(0 0 30px rgba(120, 119, 198, 0.6)); }
-    }
-
-    .header-subtitle {
-        text-align: center;
-        color: var(--text-muted);
-        font-size: 1.2rem;
-        margin-bottom: 2.5rem;
-        font-weight: 400;
-        opacity: 0.9;
+        from { filter: drop-shadow(0 0 15px rgba(120, 119, 198, 0.2)); }
+        to { filter: drop-shadow(0 0 25px rgba(120, 119, 198, 0.4)); }
     }
 
     .stTextArea textarea {
         border: 2px solid rgba(116, 75, 162, 0.3) !important;
-        border-radius: 16px !important;
-        font-size: 1.1rem !important;
+        border-radius: 14px !important;
+        font-size: 1rem !important;
         color: var(--text-primary) !important;
-        background: rgba(22, 33, 62, 0.6) !important;
+        background: rgba(22, 33, 62, 0.5) !important;
         backdrop-filter: blur(10px) !important;
-        padding: 20px !important;
+        padding: 16px !important;
         font-family: 'Noto Nastaliq Urdu', 'Inter', sans-serif !important;
-        line-height: 1.8 !important;
+        line-height: 1.7 !important;
         resize: vertical !important;
         transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
         box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.1) !important;
     }
 
     .stTextArea textarea:focus {
-        border: 2px solid var(--primary-gradient) !important;
-        box-shadow: 0 0 20px rgba(120, 119, 198, 0.3), inset 0 2px 4px rgba(0, 0, 0, 0.1) !important;
+        border: 2px solid #667eea !important;
+        box-shadow: 0 0 15px rgba(120, 119, 198, 0.2), inset 0 2px 4px rgba(0, 0, 0, 0.1) !important;
         outline: none !important;
-        transform: scale(1.02) !important;
+        transform: scale(1.01) !important;
     }
 
     .stTextArea textarea::placeholder {
         color: var(--text-muted) !important;
         opacity: 1 !important;
-        font-size: 1rem !important;
+        font-size: 0.95rem !important;
     }
 
     .stTextArea label {
         color: var(--text-secondary) !important;
         font-weight: 600 !important;
-        font-size: 1rem !important;
-        margin-bottom: 12px !important;
+        font-size: 0.95rem !important;
+        margin-bottom: 10px !important;
     }
 
     .stButton > button[kind="primary"] {
         background: var(--primary-gradient) !important;
         color: white !important;
         border: none !important;
-        border-radius: 16px !important;
-        padding: 16px 32px !important;
+        border-radius: 12px !important;
+        padding: 14px 28px !important;
         font-weight: 600 !important;
-        font-size: 1.1rem !important;
+        font-size: 1rem !important;
         transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
-        height: 56px !important;
+        height: 50px !important;
         box-shadow: var(--shadow-lg) !important;
         position: relative !important;
         overflow: hidden !important;
     }
 
-    .stButton > button[kind="primary"]::before {
-        content: '';
-        position: absolute;
-        top: 0;
-        left: -100%;
-        width: 100%;
-        height: 100%;
-        background: linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent);
-        transition: left 0.5s;
-    }
-
-    .stButton > button[kind="primary"]:hover::before {
-        left: 100%;
-    }
-
     .stButton > button[kind="primary"]:hover {
-        transform: translateY(-3px) scale(1.02) !important;
-        box-shadow: var(--shadow-xl), 0 0 30px rgba(120, 119, 198, 0.4) !important;
-    }
-
-    .stButton > button[kind="primary"]:active {
-        transform: translateY(-1px) scale(1.01) !important;
+        transform: translateY(-2px) scale(1.02) !important;
+        box-shadow: var(--shadow-xl), 0 0 25px rgba(120, 119, 198, 0.3) !important;
     }
 
     .stButton > button:not([kind="primary"]) {
-        background: rgba(116, 75, 162, 0.2) !important;
+        background: rgba(116, 75, 162, 0.15) !important;
         color: var(--text-secondary) !important;
-        border: 1px solid rgba(116, 75, 162, 0.4) !important;
-        border-radius: 12px !important;
-        padding: 12px 24px !important;
+        border: 1px solid rgba(116, 75, 162, 0.3) !important;
+        border-radius: 10px !important;
+        padding: 10px 20px !important;
         font-weight: 500 !important;
         transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
-        height: 48px !important;
+        height: 42px !important;
         backdrop-filter: blur(10px) !important;
     }
 
     .stButton > button:not([kind="primary"]):hover {
-        background: rgba(116, 75, 162, 0.4) !important;
-        border-color: var(--primary-gradient) !important;
+        background: rgba(116, 75, 162, 0.25) !important;
+        border-color: rgba(116, 75, 162, 0.5) !important;
         color: var(--text-primary) !important;
-        transform: translateY(-2px) !important;
-        box-shadow: var(--shadow-lg) !important;
+        transform: translateY(-1px) !important;
     }
 
     .stSidebar {
         background: rgba(12, 12, 12, 0.95) !important;
         backdrop-filter: blur(20px) !important;
-        border-right: 1px solid rgba(116, 75, 162, 0.3) !important;
-    }
-
-    .stSidebar .stMarkdown {
-        color: var(--text-primary) !important;
+        border-right: 1px solid rgba(116, 75, 162, 0.2) !important;
     }
 
     .stSidebar .stMarkdown h3 {
         color: var(--text-primary) !important;
         font-weight: 700 !important;
-        font-size: 1.2rem !important;
-        margin-bottom: 1.5rem !important;
-        padding-bottom: 0.75rem !important;
+        font-size: 1.1rem !important;
+        margin-bottom: 1rem !important;
+        padding-bottom: 0.5rem !important;
         border-bottom: 2px solid var(--primary-gradient) !important;
         background: var(--primary-gradient) !important;
         background-clip: text !important;
@@ -327,29 +306,10 @@ st.markdown("""
         -webkit-text-fill-color: transparent !important;
     }
 
-    .stSidebar .stInfo {
-        background: rgba(22, 33, 62, 0.8) !important;
-        border: 1px solid rgba(116, 75, 162, 0.4) !important;
-        color: var(--text-secondary) !important;
-        border-radius: 16px !important;
-        padding: 1.5rem !important;
-        backdrop-filter: blur(15px) !important;
-        box-shadow: var(--shadow-lg) !important;
-    }
-
-    .stSidebar .stInfo strong {
-        color: var(--text-primary) !important;
-    }
-
-    .block-container {
-        padding-top: 2rem;
-        padding-bottom: 2rem;
-    }
-
     .message-time {
-        font-size: 0.85rem;
-        opacity: 0.7;
-        margin-top: 1rem;
+        font-size: 0.8rem;
+        opacity: 0.6;
+        margin-top: 0.75rem;
         font-weight: 400;
         color: var(--text-muted);
     }
@@ -359,89 +319,15 @@ st.markdown("""
         background: transparent !important;
     }
 
-    .stMetric {
-        background: rgba(22, 33, 62, 0.6) !important;
-        padding: 1.5rem !important;
-        border-radius: 16px !important;
-        border: 1px solid rgba(116, 75, 162, 0.3) !important;
-        box-shadow: var(--shadow-lg) !important;
-        backdrop-filter: blur(15px) !important;
-        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
-    }
-
-    .stMetric:hover {
-        transform: translateY(-2px) !important;
-        border-color: rgba(116, 75, 162, 0.6) !important;
-    }
-
-    .stMetric label {
-        color: var(--text-muted) !important;
-        font-weight: 600 !important;
-        font-size: 0.9rem !important;
-        text-transform: uppercase !important;
-        letter-spacing: 0.5px !important;
-    }
-
-    .stMetric div[data-testid="metric-value"] {
-        color: var(--text-primary) !important;
-        font-weight: 800 !important;
-        font-size: 1.5rem !important;
-    }
-
-    .stWarning {
-        background: rgba(255, 183, 77, 0.1) !important;
-        border: 1px solid var(--warning) !important;
-        color: var(--warning) !important;
-        border-radius: 16px !important;
-        padding: 1.5rem !important;
-        backdrop-filter: blur(15px) !important;
-    }
-
-    .stSuccess {
-        background: rgba(100, 255, 218, 0.1) !important;
-        border: 1px solid var(--success) !important;
-        color: var(--success) !important;
-        border-radius: 16px !important;
-        padding: 1.5rem !important;
-        backdrop-filter: blur(15px) !important;
-    }
-
-    .stError {
-        background: rgba(255, 87, 34, 0.1) !important;
-        border: 1px solid var(--error) !important;
-        color: var(--error) !important;
-        border-radius: 16px !important;
-        padding: 1.5rem !important;
-        backdrop-filter: blur(15px) !important;
-    }
-
     .stSpinner > div {
         border-top-color: #667eea !important;
     }
 
-    .main .block-container {
-        max-width: 1200px !important;
-        padding-left: 2rem !important;
-        padding-right: 2rem !important;
-    }
-
-    hr {
-        border: none !important;
-        height: 2px !important;
-        background: var(--primary-gradient) !important;
-        opacity: 0.3 !important;
-        border-radius: 1px !important;
-    }
-
-    .stMarkdown, .stText {
-        color: var(--text-primary) !important;
-    }
-
     .loading-animation {
         display: inline-block;
-        width: 40px;
-        height: 40px;
-        border: 4px solid rgba(120, 119, 198, 0.2);
+        width: 36px;
+        height: 36px;
+        border: 3px solid rgba(120, 119, 198, 0.2);
         border-radius: 50%;
         border-top-color: #667eea;
         animation: spin 1s linear infinite, pulse 2s ease-in-out infinite;
@@ -452,21 +338,20 @@ st.markdown("""
     }
 
     @keyframes pulse {
-        0%, 100% { box-shadow: 0 0 20px rgba(120, 119, 198, 0.3); }
-        50% { box-shadow: 0 0 40px rgba(120, 119, 198, 0.6); }
+        0%, 100% { box-shadow: 0 0 15px rgba(120, 119, 198, 0.2); }
+        50% { box-shadow: 0 0 25px rgba(120, 119, 198, 0.4); }
     }
 
-    /* New feature: Copy button styles */
     .copy-button {
         background: var(--accent-gradient) !important;
         border: none !important;
-        border-radius: 8px !important;
-        padding: 6px 12px !important;
+        border-radius: 6px !important;
+        padding: 4px 10px !important;
         color: white !important;
-        font-size: 0.8rem !important;
+        font-size: 0.75rem !important;
         cursor: pointer !important;
         transition: all 0.3s ease !important;
-        margin-top: 10px !important;
+        margin-top: 8px !important;
         opacity: 0.8 !important;
     }
 
@@ -475,22 +360,22 @@ st.markdown("""
         transform: scale(1.05) !important;
     }
 
-    /* New feature: Word count display */
     .word-count {
         color: var(--text-muted);
-        font-size: 0.85rem;
+        font-size: 0.8rem;
         text-align: right;
-        margin-top: 8px;
+        margin-top: 6px;
         font-weight: 500;
+        opacity: 0.4;
+        transition: opacity 0.3s ease;
     }
 
-    /* New feature: Translation quality indicator */
     .quality-indicator {
         display: inline-block;
-        width: 8px;
-        height: 8px;
+        width: 6px;
+        height: 6px;
         border-radius: 50%;
-        margin-left: 8px;
+        margin-left: 6px;
         animation: blink 2s infinite;
     }
 
@@ -500,46 +385,125 @@ st.markdown("""
 
     @keyframes blink {
         0%, 50% { opacity: 1; }
-        51%, 100% { opacity: 0.3; }
+        51%, 100% { opacity: 0.4; }
+    }
+
+    .main .block-container {
+        max-width: 1000px !important;
+        padding-left: 1.5rem !important;
+        padding-right: 1.5rem !important;
+    }
+
+    hr {
+        border: none !important;
+        height: 1px !important;
+        background: var(--primary-gradient) !important;
+        opacity: 0.2 !important;
+        border-radius: 1px !important;
+    }
+
+    .stMarkdown, .stText {
+        color: var(--text-primary) !important;
     }
 
     /* Enhanced scrollbar */
     ::-webkit-scrollbar {
-        width: 8px;
+        width: 6px;
     }
 
     ::-webkit-scrollbar-track {
         background: rgba(116, 75, 162, 0.1);
-        border-radius: 4px;
+        border-radius: 3px;
     }
 
     ::-webkit-scrollbar-thumb {
         background: var(--primary-gradient);
-        border-radius: 4px;
+        border-radius: 3px;
     }
 
     ::-webkit-scrollbar-thumb:hover {
         background: var(--accent-gradient);
     }
 
-    /* Mobile responsiveness */
+    /* Mobile optimizations */
     @media (max-width: 768px) {
         .main-container {
-            margin: 1rem;
-            padding: 1.5rem;
+            margin: 0.5rem;
+            padding: 1rem;
+            border-radius: 16px;
         }
 
         .chat-message {
             max-width: 95%;
-            padding: 1rem;
+            padding: 0.75rem 1rem;
+            font-size: 0.9rem;
         }
 
         .header-title {
             font-size: 2rem;
+            margin-bottom: 1rem;
         }
 
         .stTextArea textarea {
-            font-size: 1rem !important;
+            font-size: 0.95rem !important;
+            padding: 12px !important;
+        }
+
+        .stButton > button[kind="primary"] {
+            height: 46px !important;
+            font-size: 0.95rem !important;
+            padding: 12px 24px !important;
+        }
+
+        .stButton > button:not([kind="primary"]) {
+            height: 40px !important;
+            font-size: 0.85rem !important;
+        }
+
+        .user-message::before,
+        .assistant-message::before {
+            width: 20px;
+            height: 20px;
+            font-size: 0.6rem;
+            top: -4px;
+        }
+
+        .user-message::before {
+            right: -4px;
+        }
+
+        .assistant-message::before {
+            left: -4px;
+        }
+
+        .main .block-container {
+            padding-left: 1rem !important;
+            padding-right: 1rem !important;
+        }
+
+        .word-count {
+            font-size: 0.75rem;
+            opacity: 0.3;
+        }
+
+        .stApp::before {
+            animation: float 40s ease-in-out infinite;
+        }
+    }
+
+    /* Extra small devices */
+    @media (max-width: 480px) {
+        .main-container {
+            margin: 0.25rem;
+            padding: 0.75rem;
+        }
+
+        .header-title {
+            font-size: 1.75rem;
+        }
+
+        .chat-message {
+            padding: 0.5rem 0.75rem;
         }
     }
 </style>
@@ -566,8 +530,6 @@ def init_session_state():
         st.session_state.max_length = 200
     if 'translation_history' not in st.session_state:
         st.session_state.translation_history = []
-    if 'favorite_translations' not in st.session_state:
-        st.session_state.favorite_translations = []
 
 
 # ============================================
@@ -642,7 +604,7 @@ def create_demo_translator():
             }
 
             # Simulate processing time
-            time.sleep(0.3 + len(cleaned) * 0.005)
+            time.sleep(0.2 + len(cleaned) * 0.003)
 
             # Get translation or create transliteration
             if cleaned in demo_translations:
@@ -735,183 +697,101 @@ def count_words(text):
 
 
 def format_translation_with_copy(translation, quality):
-    """Format translation with copy button and quality indicator"""
     quality_class = f"quality-{quality}"
+    safe_translation = translation.replace("'", "\\'").replace("\n", "\\n")
 
-    return f"""
+    st.markdown(f"""
     <div>
         <strong>Translation:</strong>
         <span class="quality-indicator {quality_class}"></span><br>
         {translation}
-        <button class="copy-button" onclick="navigator.clipboard.writeText('{translation}')">
-            📋 Copy
-        </button>
     </div>
+    """, unsafe_allow_html=True)
+
+    js_button = f"""
+    <button class="copy-button" onclick="navigator.clipboard.writeText('{safe_translation}'); this.innerText='Copied!';">
+      📋 Copy
+    </button>
     """
+    st_html(js_button, height=35)
 
 
 # ============================================
-# UI COMPONENTS (Enhanced)
+# UI COMPONENTS (Enhanced & Mobile-Optimized)
 # ============================================
 
 def display_header():
-    """Display enhanced app header with animations"""
+    """Display clean, mobile-optimized header"""
     st.markdown("""
     <div class="main-container">
         <h1 class="header-title">🌙 Urdu Translator AI</h1>
-        <p class="header-subtitle">
-            ✨ Advanced Neural Machine Translation • Urdu ↔ Roman • Powered by Deep Learning ✨
-        </p>
     </div>
     """, unsafe_allow_html=True)
 
 
 def display_sidebar():
-    """Display enhanced sidebar with model info and controls"""
+    """Streamlined sidebar - mobile optimized with essential features only"""
     with st.sidebar:
-        #st.markdown("### 🧠 Model Information")
+        st.markdown("### 📚 Chat History")
 
-        if st.session_state.model_loaded and st.session_state.translator:
-            translator = st.session_state.translator
-
-            # Display model info with enhanced styling
-            # if hasattr(translator, 'best_bleu'):
-            #     device_info = str(translator.device).upper() if hasattr(translator, 'device') else 'CPU'
-            #
-            #     st.info(f"""
-            #     **🏗️ Architecture:** LSTM Seq2Seq
-            #     **🔄 Encoder:** 2-layer BiLSTM
-            #     **🎯 Decoder:** 4-layer LSTM
-            #     **💻 Device:** {device_info}
-            #     **📊 BLEU Score:** {translator.best_bleu}
-            #     **🟢 Status:** Ready
-            #     """)
-            # else:
-            #     st.info("""
-            #     **🎭 Mode:** Demo Mode
-            #     **🟡 Status:** Neural model unavailable
-            #     **ℹ️ Note:** Using fallback translator
-            #     """)
-
-            # Enhanced session statistics with better layout
-            st.markdown("### 📈 Session Analytics")
-            stats = translator.session_stats
-
-            # Create metrics in a more organized way
-            col1, col2 = st.columns(2)
-            with col1:
-                st.metric(
-                    "🔤 Translations",
-                    stats['total_translations'],
-                    help="Total number of translations in this session"
-                )
-                st.metric(
-                    "⚡ Avg Speed",
-                    f"{stats['avg_translation_time']:.2f}s",
-                    help="Average time per translation"
-                )
-            with col2:
-                st.metric(
-                    "📝 Characters",
-                    stats['total_characters_processed'],
-                    help="Total characters processed"
-                )
-                # Calculate efficiency score
-                if stats['total_translations'] > 0:
-                    efficiency = stats['total_characters_processed'] / (
-                                stats['avg_translation_time'] * stats['total_translations'])
-                    st.metric(
-                        "🚀 Efficiency",
-                        f"{efficiency:.0f} c/s",
-                        help="Characters processed per second"
-                    )
-
-        elif st.session_state.model_loading:
-            st.info("🔄 Loading neural networks...")
-
-        else:
-            st.warning("⚠️ Model initialization required")
-
-        # Enhanced settings section
-        st.markdown("### ⚙️ Translation Settings")
-
-        max_length = st.slider(
-            "📏 Maximum Output Length",
-            50, 500, st.session_state.max_length, 25,
-            help="Maximum length of translated text"
-        )
-        st.session_state.max_length = max_length
-
-        # Advanced settings in an expander
-        with st.expander("🔧 Advanced Settings"):
-            st.checkbox("🎯 High Quality Mode", value=True, help="Use enhanced processing")
-            st.checkbox("📱 Mobile Optimization", value=False, help="Optimize for mobile devices")
-            st.selectbox("🌐 Text Direction", ["Auto", "RTL", "LTR"], help="Text reading direction")
-
-        # Enhanced controls section
-        st.markdown("### 🎮 Quick Actions")
-
-        col1, col2 = st.columns(2)
-        with col1:
-            if st.button("🗑️ Clear Chat", use_container_width=True, help="Clear all messages"):
-                st.session_state.messages = []
-                st.rerun()
-
-        with col2:
-            if st.button("🔄 Reload", use_container_width=True, help="Reload translation model"):
-                st.session_state.model_loaded = False
-                st.session_state.translator = None
-                if 'load_translator_model' in st.session_state:
-                    del st.session_state['load_translator_model']
-                st.cache_resource.clear()
-                st.rerun()
-
-        # New feature: Translation history
+        # Show recent translations in compact format
         if st.session_state.translation_history:
-            st.markdown("### 📚 Recent Translations")
-            recent_count = min(3, len(st.session_state.translation_history))
+            recent_count = min(5, len(st.session_state.translation_history))
             for i, (urdu, roman) in enumerate(st.session_state.translation_history[-recent_count:]):
-                with st.expander(f"Translation {len(st.session_state.translation_history) - recent_count + i + 1}"):
-                    st.write(f"**Urdu:** {urdu[:50]}...")
-                    st.write(f"**Roman:** {roman[:50]}...")
+                with st.expander(f"#{len(st.session_state.translation_history) - recent_count + i + 1}",
+                                 expanded=False):
+                    st.write(f"**اردو:** {urdu[:40]}...")
+                    st.write(f"**Roman:** {roman[:40]}...")
+        else:
+            st.info("No translations yet")
 
-        # New feature: Export functionality
-        st.markdown("### 💾 Export Options")
-        if st.button("📄 Export Chat", use_container_width=True, help="Export conversation as text"):
-            export_chat()
+        st.markdown("---")
 
-        # Display error info if any with better formatting
-        if st.session_state.error_state:
-            st.markdown("### ⚠️ System Status")
-            st.error(f"🔴 **Error:** {st.session_state.error_state}")
+        # Essential controls only
+        st.markdown("### 🎮 Controls")
+
+        if st.button("🗑️ Clear Chat", use_container_width=True):
+            st.session_state.messages = []
+            st.session_state.translation_history = []
+            st.rerun()
+
+        if st.button("🔄 Reload Model", use_container_width=True):
+            st.session_state.model_loaded = False
+            st.session_state.translator = None
+            st.cache_resource.clear()
+            st.rerun()
+
+        # Compact export feature
+        if st.session_state.messages:
+            st.markdown("---")
+            if st.button("📄 Export", use_container_width=True):
+                export_chat()
 
 
 def export_chat():
-    """Export chat history as downloadable text"""
+    """Simplified export function"""
     if not st.session_state.messages:
         st.warning("No messages to export!")
         return
 
-    export_text = "# Urdu Translator AI - Chat Export\n\n"
-    export_text += f"**Export Date:** {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n\n"
+    export_text = f"# Urdu Translator - {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n\n"
 
     for i, message in enumerate(st.session_state.messages, 1):
         if message["role"] == "user":
-            export_text += f"## Input {i // 2 + 1}\n**Urdu:** {message['content']}\n\n"
+            export_text += f"**Input {i // 2 + 1}:** {message['content']}\n"
         else:
-            export_text += f"**Roman Translation:** {message['content']}\n"
-            export_text += f"**Time:** {message.get('translation_time', 'N/A')}s\n\n"
+            export_text += f"**Translation:** {message['content']}\n\n"
 
     st.download_button(
-        label="📥 Download Chat History",
+        label="📥 Download",
         data=export_text,
-        file_name=f"urdu_translation_history_{datetime.now().strftime('%Y%m%d_%H%M%S')}.txt",
+        file_name=f"urdu_translations_{datetime.now().strftime('%Y%m%d_%H%M%S')}.txt",
         mime="text/plain"
     )
 
 
 def display_chat():
-    """Display chat messages with enhanced styling and features"""
+    """Mobile-optimized chat display"""
     if st.session_state.messages:
         st.markdown('<div class="main-container">', unsafe_allow_html=True)
 
@@ -922,22 +802,19 @@ def display_chat():
                 <div class="chat-message user-message">
                     {message["content"]}
                     <div class="message-time">
-                        📅 {message.get("time", "")} • 📝 {word_count} words
+                        {message.get("time", "")} • {word_count} words
                     </div>
                 </div>
                 """, unsafe_allow_html=True)
             else:
-                # Determine translation quality
                 time_taken = float(message.get("translation_time", "0"))
                 quality = get_translation_quality(message["content"], time_taken)
 
-                formatted_content = format_translation_with_copy(message["content"], quality)
-
+                st.markdown('<div class="chat-message assistant-message">', unsafe_allow_html=True)
+                format_translation_with_copy(message["content"], quality)
                 st.markdown(f"""
-                <div class="chat-message assistant-message">
-                    {formatted_content}
                     <div class="message-time">
-                        🕐 {message.get("time", "")} • ⚡ {message.get("translation_time", "0.00")}s • 🎯 {quality.title()} Quality
+                        {message.get("time", "")} • {message.get("translation_time", "0.00")}s • {quality.title()}
                     </div>
                 </div>
                 """, unsafe_allow_html=True)
@@ -946,31 +823,25 @@ def display_chat():
 
 
 def display_input():
-    """Display enhanced input form with word counting"""
+    """Mobile-optimized input form"""
     st.markdown('<div class="main-container">', unsafe_allow_html=True)
 
     with st.form("translation_form", clear_on_submit=True):
         urdu_text = st.text_area(
-            "✍️ Enter Urdu Text:",
-            placeholder="یہاں اردو متن درج کریں... (Type your Urdu text here...)",
-            height=120,
-            help="💡 Tip: Use proper Urdu text for best translation results",
+            "Enter Urdu Text:",
+            placeholder="یہاں اردو متن لکھیں... (Type your Urdu text here...)",
+            height=100,
+            help="Enter Urdu text to translate to Roman Urdu",
             key="urdu_input"
         )
 
-        # Display word count
-        if urdu_text:
-            word_count = count_words(urdu_text)
-            st.markdown(f'<div class="word-count">📊 Words: {word_count} | Characters: {len(urdu_text)}</div>',
-                        unsafe_allow_html=True)
-
         col1, col2, col3 = st.columns([3, 1, 1])
         with col1:
-            submit = st.form_submit_button("🚀 Translate Now", type="primary", use_container_width=True)
+            submit = st.form_submit_button("🚀 Translate", type="primary", use_container_width=True)
         with col2:
-            clear = st.form_submit_button("🧹 Clear", use_container_width=True)
+            clear = st.form_submit_button("Clear", use_container_width=True)
         with col3:
-            if st.form_submit_button("⭐ Demo", use_container_width=True):
+            if st.form_submit_button("Demo", use_container_width=True):
                 demo_texts = [
                     "میں اردو سیکھ رہا ہوں",
                     "آج موسم بہت اچھا ہے",
@@ -982,6 +853,12 @@ def display_input():
 
     st.markdown('</div>', unsafe_allow_html=True)
 
+    # Word count below form (transparent)
+    if urdu_text:
+        word_count = count_words(urdu_text)
+        st.markdown(f'<div class="word-count">Words: {word_count} | Characters: {len(urdu_text)}</div>',
+                    unsafe_allow_html=True)
+
     if clear:
         st.session_state.messages = []
         st.rerun()
@@ -991,14 +868,13 @@ def display_input():
 
 
 def process_translation(urdu_text):
-    """Process translation request with enhanced features"""
+    """Streamlined translation processing"""
     if not urdu_text.strip():
-        st.warning("⚠️ Please enter some Urdu text to translate.")
+        st.warning("Please enter some Urdu text to translate.")
         return
 
-    # Check if model is loaded
     if not st.session_state.model_loaded or not st.session_state.translator:
-        st.error("❌ Model not loaded. Please wait for model loading to complete.")
+        st.error("Model not loaded. Please wait for initialization.")
         return
 
     # Add user message
@@ -1008,38 +884,26 @@ def process_translation(urdu_text):
         "time": datetime.now().strftime("%H:%M:%S")
     })
 
-    # Translate with enhanced progress indicator
-    progress_placeholder = st.empty()
-    with st.spinner("🔄 Processing neural translation..."):
+    # Translate
+    with st.spinner("Translating..."):
         try:
             max_length = st.session_state.get('max_length', 200)
-
-            # Show progress
-            progress_placeholder.info("🧠 Analyzing Urdu text structure...")
-            time.sleep(0.2)
-            progress_placeholder.info("🔄 Applying neural transformation...")
-
             translation, time_taken = st.session_state.translator.translate(
                 urdu_text.strip(), max_length
             )
 
-            progress_placeholder.info("✨ Finalizing Roman output...")
-            time.sleep(0.1)
-            progress_placeholder.empty()
-
-            # Clean translation result
             clean_translation = re.sub(r'<[^>]+>', '', str(translation)).strip()
 
             if clean_translation.startswith("Error:"):
                 st.error(f"Translation failed: {clean_translation}")
                 return
 
-            # Add to translation history
+            # Add to history
             st.session_state.translation_history.append((urdu_text.strip(), clean_translation))
 
-            # Keep only last 20 translations
-            if len(st.session_state.translation_history) > 20:
-                st.session_state.translation_history = st.session_state.translation_history[-20:]
+            # Keep only last 10 translations
+            if len(st.session_state.translation_history) > 10:
+                st.session_state.translation_history = st.session_state.translation_history[-10:]
 
             # Add assistant message
             st.session_state.messages.append({
@@ -1049,162 +913,130 @@ def process_translation(urdu_text):
                 "translation_time": f"{time_taken:.2f}"
             })
 
-            # Show success message briefly
-            success_placeholder = st.empty()
-            success_placeholder.success(f"✅ Translation completed in {time_taken:.2f} seconds!")
-            time.sleep(2)
-            success_placeholder.empty()
-
         except Exception as e:
-            st.error(f"❌ Translation error: {str(e)}")
+            st.error(f"Translation error: {str(e)}")
             print(f"Translation error: {e}")
-            print(f"Traceback: {traceback.format_exc()}")
             return
 
     st.rerun()
 
 
-def display_loading_screen():
-    """Display enhanced loading screen with better animations"""
-    # st.markdown("""
-    # <div class="main-container" style="text-align: center; padding: 4rem 2rem;">
-    #     <div class="loading-animation" style="margin: 2rem auto;"></div>
-    #     <h2 style="color: var(--text-primary); margin: 2rem 0 1rem 0; background: var(--primary-gradient); background-clip: text; -webkit-background-clip: text; -webkit-text-fill-color: transparent;">
-    #         🧠 Initializing Neural Networks
-    #     </h2>
-    #     <p style="color: var(--text-muted); font-size: 1.2rem; line-height: 1.6;">
-    #         🔄 Loading 600MB model architecture...<br>
-    #         📚 Initializing tokenizers and vocabularies...<br>
-    #         ⚡ Optimizing for your device...<br><br>
-    #         <small style="opacity: 0.7;">This may take a moment on first load</small>
-    #     </p>
-    #     <div style="margin-top: 3rem; padding: 1.5rem; background: rgba(22, 33, 62, 0.8); border-radius: 16px; border: 1px solid rgba(116, 75, 162, 0.3); backdrop-filter: blur(15px);">
-    #         <div style="color: var(--text-secondary); font-size: 1rem; line-height: 1.8;">
-    #             <strong>🏗️ Model Architecture:</strong><br>
-    #             • 2-layer BiLSTM Encoder with Attention<br>
-    #             • 4-layer LSTM Decoder<br>
-    #             • 600M+ parameters<br>
-    #             • BLEU Score: 45.6<br><br>
-    #             <span style="color: var(--success);">🎯 State-of-the-art Urdu ↔ Roman Translation</span>
-    #         </div>
-    #     </div>
-    # </div>
-    # """, unsafe_allow_html=True)
+def display_classy_loading():
+    """Clean loading spinner for app startup"""
+    st.markdown("""
+    <div style="
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        min-height: 60vh;
+        text-align: center;
+        padding: 2rem;
+    ">
+        <div class="loading-animation" style="margin-bottom: 2rem;"></div>
+        <h3 style="
+            color: var(--text-secondary);
+            font-weight: 600;
+            margin: 0;
+            background: var(--primary-gradient);
+            background-clip: text;
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        ">
+            Initializing Urdu Translator
+        </h3>
+        <p style="
+            color: var(--text-muted);
+            font-size: 0.9rem;
+            margin-top: 1rem;
+            opacity: 0.8;
+        ">
+            Setting up neural translation model...
+        </p>
+    </div>
+    """, unsafe_allow_html=True)
 
 
-def display_error_screen(error_msg):
-    """Display enhanced error screen when model fails to load"""
+def display_error_fallback(error_msg):
+    """Clean error screen for model loading failures"""
     st.markdown(f"""
-    <div class="main-container" style="text-align: center; padding: 4rem 2rem;">
-        <h2 style="color: var(--error); margin: 2rem 0 1rem 0;">⚠️ Neural Model Loading Failed</h2>
-        <div style="margin: 2rem 0; padding: 2rem; background: rgba(255, 87, 34, 0.1); border: 2px solid var(--error); border-radius: 16px; color: var(--error); backdrop-filter: blur(15px);">
-            <strong>🔍 Error Details:</strong><br><br>
-            <code style="background: rgba(0,0,0,0.3); padding: 1rem; border-radius: 8px; display: block; margin: 1rem 0; color: var(--text-primary);">
-                {error_msg}
-            </code>
+    <div class="main-container" style="text-align: center; padding: 3rem 2rem;">
+        <h3 style="color: var(--warning); margin: 1rem 0;">
+            Running in Demo Mode
+        </h3>
+        <div style="
+            margin: 1.5rem 0;
+            padding: 1.5rem;
+            background: rgba(255, 183, 77, 0.1);
+            border: 1px solid var(--warning);
+            border-radius: 12px;
+            color: var(--text-secondary);
+            line-height: 1.6;
+        ">
+            <p style="margin: 0;">
+                Neural model unavailable. Using enhanced transliteration with common word mappings.
+            </p>
         </div>
-        <div style="margin-top: 2rem; padding: 2rem; background: rgba(100, 255, 218, 0.1); border: 2px solid var(--success); border-radius: 16px; color: var(--success); backdrop-filter: blur(15px);">
-            <strong>🎭 Demo Mode Active</strong><br><br>
-            ✅ The application is running in demonstration mode<br>
-            🔄 Using enhanced character-based transliteration<br>
-            📚 Includes 50+ common word mappings<br>
-            ⚡ Faster response times for testing<br><br>
-            <small style="opacity: 0.8;">Some model files may be missing. Please check your model directory.</small>
-        </div>
-        <div style="margin-top: 2rem;">
-            <button style="background: var(--primary-gradient); color: white; border: none; padding: 1rem 2rem; border-radius: 12px; font-weight: 600; cursor: pointer;" onclick="location.reload();">
-                🔄 Try Reloading
-            </button>
-        </div>
+        <small style="color: var(--text-muted); opacity: 0.7;">
+            Error: {error_msg[:100]}...
+        </small>
     </div>
     """, unsafe_allow_html=True)
 
 
 # ============================================
-# MAIN APPLICATION (Enhanced)
+# MAIN APPLICATION
 # ============================================
 
 def main():
-    """Enhanced main application function"""
+    """Clean, mobile-optimized main application"""
     # Initialize session state
     init_session_state()
 
-    # Display header
-    display_header()
-
-    # Load model if not already loaded
-    if not st.session_state.model_loaded and not st.session_state.model_loading:
+    # Show loading only on first visit
+    if not st.session_state.model_loaded and not st.session_state.model_loading and not st.session_state.messages:
+        display_classy_loading()
         st.session_state.model_loading = True
 
-        # Show loading screen
-        display_loading_screen()
-
-        # Load model in the background
+        # Load model
         with st.spinner(""):
             translator, error = load_translator_model()
             st.session_state.translator = translator
             st.session_state.model_loaded = True
             st.session_state.model_loading = False
+            st.session_state.error_state = error
 
-            if error:
-                st.session_state.error_state = error
-            else:
-                st.session_state.error_state = None
-
-        # Force rerun to update UI
-        time.sleep(1.5)
         st.rerun()
 
-    # Show error screen if there was an error loading the model
+    # Display header
+    display_header()
+
+    # Show error fallback if model failed but continue with demo
     if st.session_state.error_state and not st.session_state.messages:
-        display_error_screen(st.session_state.error_state)
+        display_error_fallback(st.session_state.error_state)
 
     # Display sidebar
     display_sidebar()
 
-    # Only show main interface if model is loaded
+    # Main interface
     if st.session_state.model_loaded:
-        # Display chat history
+        # Display chat
         display_chat()
 
-        # Display input form
+        # Display input
         urdu_input, submit_button = display_input()
 
         # Process translation
         if submit_button and urdu_input:
             process_translation(urdu_input)
 
-    # Enhanced footer with stats
-    if st.session_state.model_loaded and st.session_state.translator:
-        stats = st.session_state.translator.session_stats
-        # st.markdown(f"""
-        # <div class="main-container">
-        #     <hr style="margin: 2rem 0; border: none; height: 2px; background: var(--primary-gradient); opacity: 0.3;">
-        #     <div style="text-align: center; color: var(--text-muted); line-height: 1.8;">
-        #         <strong style="background: var(--primary-gradient); background-clip: text; -webkit-background-clip: text; -webkit-text-fill-color: transparent; font-size: 1.2rem;">
-        #             🌙 Urdu Translator AI
-        #         </strong><br>
-        #         <span style="font-size: 0.95rem;">
-        #             🧠 Neural Machine Translation • 🚀 PyTorch & Streamlit<br>
-        #             📊 Session: {stats['total_translations']} translations • {stats['total_characters_processed']} characters processed<br>
-        #             ⚡ Average: {stats['avg_translation_time']:.2f}s per translation
-        #         </span><br><br>
-        #         <small style="opacity: 0.7; font-size: 0.8rem;">
-        #             🏗️ Architecture: 2-Layer BiLSTM Encoder + 4-Layer LSTM Decoder with Bahdanau Attention<br>
-        #             🎯 Specialized for Urdu ↔ Roman Urdu Translation • BLEU Score: 45.6
-        #         </small>
-        #     </div>
-        # </div>
-        # """, unsafe_allow_html=True)
-
 
 if __name__ == "__main__":
     try:
         main()
     except Exception as e:
-        st.error(f"🔴 **Application Error:** {str(e)}")
-        st.error("Please check the console for detailed error information.")
-        with st.expander("🔍 Debug Information"):
+        st.error(f"Application Error: {str(e)}")
+        with st.expander("Debug Info"):
             st.code(f"Error: {e}\n\nTraceback:\n{traceback.format_exc()}")
         print(f"App error: {e}")
         print(f"Traceback: {traceback.format_exc()}")
